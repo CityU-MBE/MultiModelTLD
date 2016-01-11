@@ -224,7 +224,9 @@ double TLD::getVar(const BoundingBox& box,const Mat& sum,const Mat& sqsum){
   return sqmean-mean*mean;
 }
 
-void TLD::processFrame(const cv::Mat& img1,const cv::Mat& img2,vector<Point2f>& points1,vector<Point2f>& points2,BoundingBox& bbnext,bool& lastboxfound, bool tl, FILE* bb_file){
+void TLD::processFrame(const cv::Mat& img1,const cv::Mat& img2,vector<Point2f>& points1,
+                       vector<Point2f>& points2,BoundingBox& bbnext,
+                       bool& lastboxfound, bool tl, FILE* bb_file){
   vector<BoundingBox> cbb;
   vector<float> cconf;
   int confident_detections=0;
@@ -411,7 +413,7 @@ void TLD::bbPredict(const vector<cv::Point2f>& points1,const vector<cv::Point2f>
   printf("predicted bb: %d %d %d %d\n",bb2.x,bb2.y,bb2.br().x,bb2.br().y);
 }
 
-void TLD::detect(const cv::Mat& frame){
+void TLD::detect(const cv::Mat& frame){ // Ming: detect the window with existing Fern model
   //cleaning
   dbb.clear();
   dconf.clear();
@@ -519,6 +521,76 @@ void TLD::learn(const Mat& img){
       return;
   }
   if(isin[2]==1){
+      printf("Patch in negative data..not taring");
+      lastvalid=false;
+      return;
+  }
+/// Data generation
+  for (int i=0;i<grid.size();i++){
+      grid[i].overlap = bbOverlap(lastbox,grid[i]);
+  }
+  vector<pair<vector<int>,int> > fern_examples;
+  good_boxes.clear();
+  bad_boxes.clear();
+  getOverlappingBoxes(lastbox,num_closest_update);
+  if (good_boxes.size()>0)
+    generatePositiveData(img,num_warps_update);
+  else{
+    lastvalid = false;
+    printf("No good boxes..Not training");
+    return;
+  }
+  fern_examples.reserve(pX.size()+bad_boxes.size());
+  fern_examples.assign(pX.begin(),pX.end());
+  int idx;
+  for (int i=0;i<bad_boxes.size();i++){
+      idx=bad_boxes[i];
+      if (tmp.conf[idx]>=1){
+          fern_examples.push_back(make_pair(tmp.patt[idx],0));
+      }
+  }
+  vector<Mat> nn_examples;
+  nn_examples.reserve(dt.bb.size()+1);
+  nn_examples.push_back(pEx);
+  for (int i=0;i<dt.bb.size();i++){
+      idx = dt.bb[i];
+      if (bbOverlap(lastbox,grid[idx]) < bad_overlap)
+        nn_examples.push_back(dt.patch[i]);
+  }
+  /// Classifiers update
+  classifier.trainF(fern_examples,2);
+  classifier.trainNN(nn_examples);
+  classifier.show();
+}
+
+// Ming: a function to manually add new patches into the model
+// supposed to be useful for tracking an objects
+// with different perspectives.
+void TLD::learn_ming(const Mat& img){
+  printf("[Learning] ");
+  ///Check consistency
+  BoundingBox bb;
+  bb.x = max(lastbox.x,0);
+  bb.y = max(lastbox.y,0);
+  bb.width = min(min(img.cols-lastbox.x,lastbox.width),min(lastbox.width,lastbox.br().x));
+  bb.height = min(min(img.rows-lastbox.y,lastbox.height),min(lastbox.height,lastbox.br().y));
+  Scalar mean, stdev;
+  Mat pattern;
+  getPattern(img(bb),pattern,mean,stdev);
+  vector<int> isin;
+  float dummy, conf;
+  classifier.NNConf(pattern,isin,conf,dummy);
+  if (conf<0.5) {
+      printf("Fast change..not training\n");
+      lastvalid =false;
+      return;
+  }
+  if (pow(stdev.val[0],2)<var){
+      printf("Low variance..not training\n");
+      lastvalid=false;
+      return;
+  }
+  if(isin[2]==1){
       printf("Patch in negative data..not traing");
       lastvalid=false;
       return;
@@ -560,6 +632,7 @@ void TLD::learn(const Mat& img){
   classifier.trainNN(nn_examples);
   classifier.show();
 }
+
 
 void TLD::buildGrid(const cv::Mat& img, const cv::Rect& box){
   const float SHIFT = 0.1;

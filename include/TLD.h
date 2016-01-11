@@ -3,7 +3,8 @@
 #include <LKTracker.h>
 #include <FerNNClassifier.h>
 #include <fstream>
-
+// Ming add
+#include <opencv2/legacy/legacy.hpp> 
 
 //Bounding Boxes
 struct BoundingBox : public cv::Rect {
