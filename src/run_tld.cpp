@@ -143,8 +143,12 @@ GETBOUNDINGBOX:
     cvtColor(frame, last_gray, CV_RGB2GRAY);
     drawBox(frame,box);
     imshow("TLD", frame);
-    if (cvWaitKey(33) == 'q')
-	    return 0;
+    //cout << "Hi!" << endl;
+    char k = cv::waitKey(10);
+    if (k!=-1) cout << "The key is: " << k << endl;
+    if (k == 'q') return 0;
+    // if (cv::waitKey(10) == 'q')
+    //         return 0;
   }
   if (min(box.width,box.height)<(int)fs.getFirstTopLevelNode()["min_win"]){
       cout << "Bounding box too small, try again." << endl;
@@ -188,8 +192,40 @@ REPEAT:
     pts2.clear();
     frames++;
     printf("Detection rate: %d/%d\n",detections,frames);
-    if (cvWaitKey(33) == 'q')
-      break;
+
+    char k = cv::waitKey(10);
+    if (k!=-1) cout << "The key is: " << k << endl;
+    if (k == 'q') break;
+    else if (k=='r') {
+        cvSetMouseCallback( "TLD", mouseHandler, NULL );
+        gotBB = false;
+
+        Mat frame_pause;
+        frame.copyTo(frame_pause);
+        while (!gotBB) {
+            frame_pause.copyTo(frame);
+            drawBox(frame,box);
+            imshow("TLD", frame);
+            char ki = cv::waitKey(10);
+            if (ki!=-1) cout << "Prepare to learn. The key is: " << ki << endl;
+            if (ki == 'q') break;
+        }
+        if (min(box.width,box.height)<(int)fs.getFirstTopLevelNode()["min_win"]){
+            cout << "Bounding box too small, try again." << endl;
+            gotBB = false;
+            goto GETBOUNDINGBOX;
+        }
+        cvSetMouseCallback( "TLD", NULL, NULL );
+        printf("[Ming] Manually Learning Bounding Box = x:%d y:%d h:%d w:%d\n",box.x,box.y,box.width,box.height);
+        // Trigger the learning manually
+        BoundingBox bb_ming(box);
+        tld.learn_ming(current_gray, bb_ming); 
+    }
+    // if (cvWaitKey(33) == 'q')
+    // {
+    //     cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! got q! " << endl; 
+    //     break;
+    // }
   }
   if (rep){
     rep = false;

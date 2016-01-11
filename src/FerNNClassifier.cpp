@@ -222,3 +222,45 @@ void FerNNClassifier::show(){
   }
   imshow("Examples",examples);
 }
+
+
+void mouseRemoverHandler(int event, int x, int y, int flags, void *param){
+  switch( event ){
+  // case CV_EVENT_MOUSEMOVE:
+  //   if (drawing_box){
+  //       box.width = x-box.x;
+  //       box.height = y-box.y;
+  //   }
+  //   break;
+  // case CV_EVENT_LBUTTONDOWN:
+  //   drawing_box = true;
+  //   box = Rect( x, y, 0, 0 );
+  //   break;
+  case CV_EVENT_LBUTTONUP:
+    cout << "[Ming]\033[1;31mbold The x is :\033[0m" << x << endl;
+    cout << "[Ming]\033[1;31mbold The y is :\033[0m" << y << endl;
+    break;
+  }
+}
+
+
+// almost the same as show(), but magnified, to show better the patches
+void FerNNClassifier::show_ming(){
+  int scale = 3;
+  Mat examples(pEx[0].rows*scale, (int)pEx.size()*pEx[0].cols*scale,CV_8U);
+  double minval;
+  Mat ex(pEx[0].rows,pEx[0].cols,pEx[0].type());
+  for (int i=0;i<pEx.size();i++){
+    minMaxLoc(pEx[i],&minval);
+    pEx[i].copyTo(ex);
+    ex = ex-minval;
+    Mat ex_large;
+    resize(ex, ex_large, Size(pEx[0].rows*scale,pEx[0].cols*scale), 1,1,INTER_AREA);
+    Mat tmp = examples.colRange(Range(i*pEx[i].rows*scale,(i+1)*pEx[i].rows*scale));
+    ex_large.convertTo(tmp,CV_8U);
+  }
+  imshow("Examples",examples);
+
+  cvSetMouseCallback("Examples", mouseRemoverHandler, NULL);
+}
+

@@ -560,31 +560,38 @@ void TLD::learn(const Mat& img){
   /// Classifiers update
   classifier.trainF(fern_examples,2);
   classifier.trainNN(nn_examples);
-  classifier.show();
+  // classifier.show();
+  classifier.show_ming();
 }
 
 // Ming: a function to manually add new patches into the model
 // supposed to be useful for tracking an objects
 // with different perspectives.
-void TLD::learn_ming(const Mat& img){
-  printf("[Learning] ");
+void TLD::learn_ming(const Mat& img, const BoundingBox & bb){
+  printf("[Manual Learning] \n ");
   ///Check consistency
-  BoundingBox bb;
-  bb.x = max(lastbox.x,0);
-  bb.y = max(lastbox.y,0);
-  bb.width = min(min(img.cols-lastbox.x,lastbox.width),min(lastbox.width,lastbox.br().x));
-  bb.height = min(min(img.rows-lastbox.y,lastbox.height),min(lastbox.height,lastbox.br().y));
+
+  // the bb is directly input from mouse input.
+  // BoundingBox bb;
+  // bb.x = max(lastbox.x,0);
+  // bb.y = max(lastbox.y,0);
+  // bb.width = min(min(img.cols-lastbox.x,lastbox.width),min(lastbox.width,lastbox.br().x));
+  // bb.height = min(min(img.rows-lastbox.y,lastbox.height),min(lastbox.height,lastbox.br().y));
   Scalar mean, stdev;
   Mat pattern;
   getPattern(img(bb),pattern,mean,stdev);
   vector<int> isin;
   float dummy, conf;
   classifier.NNConf(pattern,isin,conf,dummy);
-  if (conf<0.5) {
-      printf("Fast change..not training\n");
-      lastvalid =false;
-      return;
-  }
+
+  // cout << "[Ming]\033[1;31mbold The confidence is :\033[0m" << conf << endl;
+  // if (conf<0.5) {
+  //     printf("Fast change..not training\n");
+  //     lastvalid =false;
+  //     return;
+  // }
+  cout << "[Ming]\033[1;31mbold The std-variance is :\033[0m" << pow(stdev.val[0],2) << endl;
+
   if (pow(stdev.val[0],2)<var){
       printf("Low variance..not training\n");
       lastvalid=false;
@@ -597,12 +604,14 @@ void TLD::learn_ming(const Mat& img){
   }
 /// Data generation
   for (int i=0;i<grid.size();i++){
-      grid[i].overlap = bbOverlap(lastbox,grid[i]);
+      // grid[i].overlap = bbOverlap(lastbox,grid[i]);
+      grid[i].overlap = bbOverlap(bb,grid[i]);
   }
   vector<pair<vector<int>,int> > fern_examples;
   good_boxes.clear();
   bad_boxes.clear();
-  getOverlappingBoxes(lastbox,num_closest_update);
+  // getOverlappingBoxes(lastbox,num_closest_update);
+  getOverlappingBoxes(bb,num_closest_update);
   if (good_boxes.size()>0)
     generatePositiveData(img,num_warps_update);
   else{
@@ -630,7 +639,8 @@ void TLD::learn_ming(const Mat& img){
   /// Classifiers update
   classifier.trainF(fern_examples,2);
   classifier.trainNN(nn_examples);
-  classifier.show();
+  // classifier.show();
+  classifier.show_ming();
 }
 
 
