@@ -612,6 +612,11 @@ void TLD::learn_ming(const Mat& img, const BoundingBox & bb){
   bad_boxes.clear();
   // getOverlappingBoxes(lastbox,num_closest_update);
   getOverlappingBoxes(bb,num_closest_update);
+
+  cout << "[Ming]\033[1;31mbold Good and Bad boxes :\033[0m" << good_boxes.size() << " : " << bad_boxes.size() << endl;
+
+  
+  
   if (good_boxes.size()>0)
     generatePositiveData(img,num_warps_update);
   else{

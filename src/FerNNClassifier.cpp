@@ -224,6 +224,8 @@ void FerNNClassifier::show(){
 }
 
 
+
+int remove_x=0, remove_y=0;
 void mouseRemoverHandler(int event, int x, int y, int flags, void *param){
   switch( event ){
   // case CV_EVENT_MOUSEMOVE:
@@ -239,6 +241,8 @@ void mouseRemoverHandler(int event, int x, int y, int flags, void *param){
   case CV_EVENT_LBUTTONUP:
     cout << "[Ming]\033[1;31mbold The x is :\033[0m" << x << endl;
     cout << "[Ming]\033[1;31mbold The y is :\033[0m" << y << endl;
+    remove_x = x;
+    remove_y = y;
     break;
   }
 }
@@ -262,5 +266,14 @@ void FerNNClassifier::show_ming(){
   imshow("Examples",examples);
 
   cvSetMouseCallback("Examples", mouseRemoverHandler, NULL);
+  if (remove_x != 0) {
+      // the remove x is updated
+      int index_remove = remove_x / (pEx[0].cols*scale);
+      cout << "[Ming]\033[1;31mbold Removing patch :\033[0m" << index_remove << endl;
+      pEx.erase(pEx.begin() + index_remove);
+      // add to negative samples
+      nEx.push_back(pEx[index_remove]);
+      remove_x = 0; // set back to 0 to stop keep erasing following patchese.
+  }
 }
 
