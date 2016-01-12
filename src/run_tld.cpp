@@ -221,6 +221,11 @@ REPEAT:
         BoundingBox bb_ming(box);
         tld.learn_ming(current_gray, bb_ming); 
     }
+    else if (k=='l') {
+        // toggle learning or not
+        tl = !tl;
+        cout << "[Ming-debug] learning is toggled to "<< tl << endl;
+    }
     // if (cvWaitKey(33) == 'q')
     // {
     //     cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! got q! " << endl; 
