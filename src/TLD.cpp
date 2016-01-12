@@ -543,20 +543,26 @@ void TLD::learn(const Mat& img){
   fern_examples.reserve(pX.size()+bad_boxes.size());
   fern_examples.assign(pX.begin(),pX.end());
   int idx;
+  cout << "[Ming-debug]\033[1;31mbold Good and Bad boxes :\033[0m" << good_boxes.size() << " : " << bad_boxes.size() << endl;
+  int ming_i=0;
   for (int i=0;i<bad_boxes.size();i++){
       idx=bad_boxes[i];
       if (tmp.conf[idx]>=1){
           fern_examples.push_back(make_pair(tmp.patt[idx],0));
+          ming_i ++;
       }
   }
+  cout << "[Ming-debug]\033[1;31mbold Bad boxes added:\033[0m" << ming_i << " : " << bad_boxes.size() << endl;
   vector<Mat> nn_examples;
   nn_examples.reserve(dt.bb.size()+1);
   nn_examples.push_back(pEx);
+  //nn_examples.push_back(pattern); // pEx is rectified pattern
   for (int i=0;i<dt.bb.size();i++){
       idx = dt.bb[i];
       if (bbOverlap(lastbox,grid[idx]) < bad_overlap)
         nn_examples.push_back(dt.patch[i]);
   }
+  cout <<"[Ming-debug] nn_example size: " << nn_examples.size() <<endl;
   /// Classifiers update
   classifier.trainF(fern_examples,2);
   classifier.trainNN(nn_examples);
@@ -614,36 +620,113 @@ void TLD::learn_ming(const Mat& img, const BoundingBox & bb){
   getOverlappingBoxes(bb,num_closest_update);
 
   cout << "[Ming]\033[1;31mbold Good and Bad boxes :\033[0m" << good_boxes.size() << " : " << bad_boxes.size() << endl;
+  printf("[Ming] Best Box: %d %d %d %d\n",best_box.x,best_box.y,best_box.width,best_box.height);
 
   
   
   if (good_boxes.size()>0)
     generatePositiveData(img,num_warps_update);
-  else{
+  else{ // Ming: need to detect this case?
     lastvalid = false;
     printf("No good boxes..Not training");
     return;
   }
-  fern_examples.reserve(pX.size()+bad_boxes.size());
-  fern_examples.assign(pX.begin(),pX.end());
-  int idx;
-  for (int i=0;i<bad_boxes.size();i++){
-      idx=bad_boxes[i];
-      if (tmp.conf[idx]>=1){
-          fern_examples.push_back(make_pair(tmp.patt[idx],0));
-      }
-  }
+
+  // Get the set of conf and patt for the grid structure
+  // dbb.clear();
+  // dconf.clear();
+  // dt.bb.clear();
+  // double t = (double)getTickCount();
+  // dt.bb.clear();
+  // Mat img(frame.rows,frame.cols,CV_8U);
+  // integral(frame,iisum,iisqsum);
+  // GaussianBlur(frame,img,Size(9,9),1.5);
+  // int numtrees = classifier.getNumStructs();
+  // float fern_th = classifier.getFernTh();
+  // vector <int> ferns(10);
+  // float conf;
+  // int a=0;
+  // Mat patch;
+
+  // for (int i=0;i<grid.size();i++){//FIXME: BottleNeck
+  //     if (getVar(grid[i],iisum,iisqsum)>=var){
+  //         a++;
+  //       	  patch = img(grid[i]);
+  //         classifier.getFeatures(patch,grid[i].sidx,ferns);
+  //         // Ming: do I really need to meaure conf?
+  //         conf = classifier.measure_forest(ferns);
+  //         tmp.conf[i]=conf;
+  //         tmp.patt[i]=ferns;
+  //         if (conf>numtrees*fern_th){
+  //             dt.bb.push_back(i);
+  //         }
+  //     }
+  //     else
+  //       tmp.conf[i]=0.0;
+  // }
+  // int detections = dt.bb.size();
+  // printf("[Ming Manuel] %d Bounding boxes passed the variance filter\n",a);
+  // printf("[Ming Manuel] %d Initial detection from Fern Classifier\n",detections);
+
+  // if (detections>100){
+  //     nth_element(dt.bb.begin(),dt.bb.begin()+100,dt.bb.end(),CComparator(tmp.conf));
+  //     dt.bb.resize(100);
+  //     detections=100;
+  // }
+  
+
+  // Generate features for valid windows
+   // fern_examples.reserve(pX.size()+bad_boxes.size());
+   fern_examples.reserve(pX.size()); // pX is updated by generatePositiveData
+   fern_examples.assign(pX.begin(),pX.end()); // To update only pos samples
+  // int idx;
+  // for (int i=0;i<bad_boxes.size();i++){
+  //     idx=bad_boxes[i];
+  //     if (tmp.conf[idx]>=1){
+  //         fern_examples.push_back(make_pair(tmp.patt[idx],0));
+  //     }
+  // } // Ming: maybe too much: to insert all bad_boxes; using [Ming-debug] to check, usually 100:1 images are selected by conf.
+    // However, in this manual mode, the conf is not reliable. If it does reliable, it should already been detected by algorithm.
+    // The positive ferns are installed already by generatePositiveData
+  
   vector<Mat> nn_examples;
-  nn_examples.reserve(dt.bb.size()+1);
-  nn_examples.push_back(pEx);
-  for (int i=0;i<dt.bb.size();i++){
-      idx = dt.bb[i];
-      if (bbOverlap(lastbox,grid[idx]) < bad_overlap)
-        nn_examples.push_back(dt.patch[i]);
-  }
+
+  // nn_examples.reserve(dt.bb.size()+1);
+  // nn_examples.push_back(pEx); // Ming: why not "pattern"?
+  // for (int i=0;i<dt.bb.size();i++){
+  //     idx = dt.bb[i];
+  //     if (bbOverlap(lastbox,grid[idx]) < bad_overlap)
+  //       nn_examples.push_back(dt.patch[i]);
+  // }
+  // Ming: instead of filtering in the selected windows (filtered by conf, which don't have)
+  // We can go throught all grid windows instead. Don't know the efficiency though.
+  // nn_examples.reserve(grid.size());
+  // nn_examples.push_back(pEx); // the first is positive; the rest are negative: line 117 of FeNNClassifier.cpp
+  // Mat patch_ming;
+  // int counter_ming = 0;
+  // cout << "[ming-Counter] Try to get data to trainNN..." << endl;
+  // for (int i=0;i<grid.size();i++){
+  //     // if (bbOverlap(lastbox,grid[i]) < bad_overlap)
+  //     if (bbOverlap(best_box,grid[i]) < bad_overlap)
+  //     {
+  //         counter_ming ++;
+  //         cout << "[Ming-counter] " << i << " : " << grid.size() << " : " << counter_ming << endl;
+  //         getPattern(img(grid[i]),patch_ming,mean,stdev);                //  Get pattern within bounding box
+  //         nn_examples.push_back(patch_ming);
+  //     }
+  // }
+  // cout << "[ming-Counter] " << counter_ming << " patches added to trainNN";
+
+
+  
+
   /// Classifiers update
   classifier.trainF(fern_examples,2);
-  classifier.trainNN(nn_examples);
+  //classifier.trainNN(nn_examples);
+  // Don't do the negative training; only on positive:
+  Mat patch_ming;
+  getPattern(img(best_box),patch_ming,mean,stdev);                //  Get pattern within bounding box
+  classifier.pEx.push_back(patch_ming);
   // classifier.show();
   classifier.show_ming();
 }
