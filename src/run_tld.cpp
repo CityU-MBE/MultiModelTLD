@@ -125,8 +125,12 @@ int main(int argc, char * argv[]){
   if (fromfile){
       capture >> frame;
       cvtColor(frame, last_gray, CV_RGB2GRAY);
+      // Ming: preprocess
+      threshold(last_gray, last_gray, tld.thresh_bin, 255, THRESH_BINARY);
+      // -- end --
       frame.copyTo(first);
-  }else{
+
+  }else{ // TODO: should do it afterwards
       capture.set(CV_CAP_PROP_FRAME_WIDTH,340);
       capture.set(CV_CAP_PROP_FRAME_HEIGHT,240);
   }
@@ -175,6 +179,12 @@ REPEAT:
   while(capture.read(frame)){
     //get frame
     cvtColor(frame, current_gray, CV_RGB2GRAY);
+
+    // Ming:
+    // Ming: preprocess
+    threshold(current_gray, current_gray, tld.thresh_bin, 255, THRESH_BINARY);
+    // -- end --
+
     //Process Frame
     tld.processFrame(last_gray,current_gray,pts1,pts2,pbox,status,tl,bb_file);
     //Draw Points
@@ -195,7 +205,11 @@ REPEAT:
 
     char k = cv::waitKey(10);
     if (k!=-1) cout << "The key is: " << k << endl;
-    if (k == 'q') break;
+    if (k == 'q')
+    {
+        tld.classifier.suicide = 1;
+        break;
+    }
     else if (k=='r') {
         cvSetMouseCallback( "TLD", mouseHandler, NULL );
         gotBB = false;

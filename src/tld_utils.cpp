@@ -16,6 +16,7 @@ void drawPoints(Mat& image, vector<Point2f> points,Scalar color){
 
 Mat createMask(const Mat& image, CvRect box){
   Mat mask = Mat::zeros(image.rows,image.cols,CV_8U);
+  // drawBox(mask,box,Scalar::all(255),CV_FILLED);
   drawBox(mask,box,Scalar::all(255),CV_FILLED);
   return mask;
 }

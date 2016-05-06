@@ -50,9 +50,9 @@ struct CComparator{
 class TLD{
 private:
   cv::PatchGenerator generator;
-  FerNNClassifier classifier;
   LKTracker tracker;
   ///Parameters
+  
   int bbox_step;
   int min_win;
   int patch_size;
@@ -113,7 +113,12 @@ private:
   BoundingBox bbhull; // hull of good_boxes
   BoundingBox best_box; // maximum overlapping bbox
 
+
 public:
+  FerNNClassifier classifier;
+  //Ming:
+  int thresh_bin;
+
   //Constructors
   TLD();
   TLD(const cv::FileNode& file);

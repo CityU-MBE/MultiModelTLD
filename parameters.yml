@@ -26,5 +26,6 @@ Parameters:
    bb_x: 288
    bb_y: 36
    bb_w: 25
-   bb_h: 42   
+   bb_h: 42
+   thresh_bin: 30
 

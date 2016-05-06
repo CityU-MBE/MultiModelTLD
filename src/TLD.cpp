@@ -40,6 +40,8 @@ void TLD::read(const FileNode& file){
   //parameters for negative examples
   bad_overlap = (float)file["overlap"];
   bad_patches = (int)file["num_patches"];
+  // Ming:
+  thresh_bin = (int)file["thresh_bin"];
   classifier.read(file);
 }
 
@@ -224,8 +226,11 @@ double TLD::getVar(const BoundingBox& box,const Mat& sum,const Mat& sqsum){
   return sqmean-mean*mean;
 }
 
-void TLD::processFrame(const cv::Mat& img1,const cv::Mat& img2,vector<Point2f>& points1,
-                       vector<Point2f>& points2,BoundingBox& bbnext,
+void TLD::processFrame(const cv::Mat& img1,
+                       const cv::Mat& img2,
+                       vector<Point2f>& points1,
+                       vector<Point2f>& points2,
+                       BoundingBox& bbnext,
                        bool& lastboxfound, bool tl, FILE* bb_file){
   vector<BoundingBox> cbb;
   vector<float> cconf;
@@ -239,7 +244,9 @@ void TLD::processFrame(const cv::Mat& img1,const cv::Mat& img2,vector<Point2f>& 
       tracked = false;
   }
   ///Detect
-  detect(img2);
+  detect(img2); // Ming: extract fern and get Posteriors
+        // Ming: It seems important to not consider the false samples.
+        // so, the side-effect of the wrongly learned samples should be removed.
   ///Integration
   if (tracked){
       bbnext=tbb;
@@ -540,6 +547,9 @@ void TLD::learn(const Mat& img){
     printf("No good boxes..Not training");
     return;
   }
+
+  // Ming: should remember all good_boxes, so that the corresponding ferns can be removed
+  // manually, in FerNNClassifier::show_ming()
   fern_examples.reserve(pX.size()+bad_boxes.size());
   fern_examples.assign(pX.begin(),pX.end());
   int idx;
@@ -563,6 +573,12 @@ void TLD::learn(const Mat& img){
         nn_examples.push_back(dt.patch[i]);
   }
   cout <<"[Ming-debug] nn_example size: " << nn_examples.size() <<endl;
+
+  // help removal
+  cout<<"[Ming] save state to history. " << endl;
+  classifier.history_fernsLearn.push_back(fern_examples);
+  classifier.tracker_indexLearn.push_back(classifier.acum);
+  
   /// Classifiers update
   classifier.trainF(fern_examples,2);
   classifier.trainNN(nn_examples);
@@ -718,7 +734,11 @@ void TLD::learn_ming(const Mat& img, const BoundingBox & bb){
   // cout << "[ming-Counter] " << counter_ming << " patches added to trainNN";
 
 
-  
+  // record for removal
+  cout<<"[Ming] save state to history. " << endl;
+  classifier.history_fernsLearn.push_back(fern_examples);
+  classifier.tracker_indexLearn.push_back(classifier.acum);
+
 
   /// Classifiers update
   classifier.trainF(fern_examples,2);

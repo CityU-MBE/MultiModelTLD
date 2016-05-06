@@ -2,7 +2,8 @@
 using namespace cv;
 
 LKTracker::LKTracker(){
-  term_criteria = TermCriteria( TermCriteria::COUNT+TermCriteria::EPS, 20, 0.03);
+  // term_criteria = TermCriteria( TermCriteria::COUNT+TermCriteria::EPS, 20, 0.03);
+  term_criteria = TermCriteria( TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01);
   window_size = Size(4,4);
   level = 5;
   lambda = 0.5;

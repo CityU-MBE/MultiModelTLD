@@ -6,9 +6,73 @@
  */
 
 #include <FerNNClassifier.h>
+#include <unistd.h> //usleep()
+#include <mutex>
 
 using namespace cv;
 using namespace std;
+int remove_x=0, remove_y=0;
+int scale = 3; //scale to magnify the patches
+
+
+std::mutex g_lock;
+
+
+void FerNNClassifier::mouseRemoverHandler(int event, int x, int y, int flags, void *param){
+  switch( event ){
+  // case CV_EVENT_MOUSEMOVE:
+  //   if (drawing_box){
+  //       box.width = x-box.x;
+  //       box.height = y-box.y;
+  //   }
+  //   break;
+  // case CV_EVENT_LBUTTONDOWN:
+  //   drawing_box = true;
+  //   box = Rect( x, y, 0, 0 );
+  //   break;
+  case CV_EVENT_LBUTTONDOWN:
+    cout << "[Ming]\033[1;31mbold The x-examples is :\033[0m" << x << endl;
+    cout << "[Ming]\033[1;31mbold The y-examples is :\033[0m" << y << endl;
+    remove_x = x;
+    remove_y = y;
+    break;
+  }
+}
+
+void FerNNClassifier::remove_thd()
+{
+    while (!suicide) {
+        g_lock.lock();
+        if (remove_x != 0) {
+            // the remove x is updated
+            int index_remove = remove_x / (pEx[0].cols*scale);
+            cout << "[Ming]\033[1;31mbold Removing patch :\033[0m" << index_remove << endl;
+            Mat tobeRemovedFromPositive;
+            pEx[index_remove].copyTo(tobeRemovedFromPositive);
+            pEx.erase(pEx.begin() + index_remove);
+            tracker_indexLearn.erase(tracker_indexLearn.begin() + index_remove);
+            // add to negative samples
+            nEx.push_back(tobeRemovedFromPositive);
+            // update the fern features
+            int index_targetFern = tracker_indexLearn[index_remove]; // real index
+            vector<std::pair<vector<int>,int> > targetFern = history_fernsLearn[index_targetFern];
+            for (int j=0 ; j < targetFern.size(); j++) {
+                if(targetFern[j].second == 1){ // the old label is positive; we should remove positive by 1
+                    update(targetFern[j].first, 1, -1);
+                } else {
+                    update(targetFern[j].first, 0, -1);
+                }
+            }
+            // reset
+            remove_x = 0; // set back to 0 to stop keep erasing following patchese.
+        }
+        g_lock.unlock();
+       // show_ming();
+
+        usleep(10000);
+    }
+}
+
 
 void FerNNClassifier::read(const FileNode& file){
   ///Classifier Parameters
@@ -23,6 +87,15 @@ void FerNNClassifier::read(const FileNode& file){
 
 void FerNNClassifier::prepare(const vector<Size>& scales){
   acum = 0;
+  history_fernsLearn.reserve(1000); // 1000 learned patterns
+  tracker_indexLearn.reserve(1000);
+
+  suicide = false;
+
+
+  cv::namedWindow("Examples");
+  cvSetMouseCallback("Examples", mouseRemoverHandler, NULL);
+
   //Initialize test locations for features
   int totalFeatures = nstructs*structSize;
   features = vector<vector<Feature> >(scales.size(),vector<Feature> (totalFeatures));
@@ -52,6 +125,9 @@ void FerNNClassifier::prepare(const vector<Size>& scales){
       pCounter.push_back(vector<int>(pow(2.0,structSize), 0));
       nCounter.push_back(vector<int>(pow(2.0,structSize), 0));
   }
+
+    t = std::thread(&FerNNClassifier::remove_thd, this);
+
 }
 
 void FerNNClassifier::getFeatures(const cv::Mat& image,const int& scale_idx, vector<int>& fern){
@@ -109,6 +185,9 @@ void FerNNClassifier::trainF(const vector<std::pair<vector<int>,int> >& ferns,in
           }
       }
   //}
+      acum++;
+      printf("%d. Trained NN examples: %d positive %d negative\n",acum,(int)pEx.size(),(int)nEx.size());
+
 }
 
 void FerNNClassifier::trainNN(const vector<cv::Mat>& nn_examples){
@@ -130,8 +209,6 @@ void FerNNClassifier::trainNN(const vector<cv::Mat>& nn_examples){
         nEx.push_back(nn_examples[i]);                             //    tld.nex = [tld.nex x(:,i)];
 
   }                                                                 //  end
-  acum++;
-  printf("%d. Trained NN examples: %d positive %d negative\n",acum,(int)pEx.size(),(int)nEx.size());
 }                                                                  //  end
 
 
@@ -223,40 +300,17 @@ void FerNNClassifier::show(){
   imshow("Examples",examples);
 }
 
-
-
-int remove_x=0, remove_y=0;
-void mouseRemoverHandler(int event, int x, int y, int flags, void *param){
-  switch( event ){
-  // case CV_EVENT_MOUSEMOVE:
-  //   if (drawing_box){
-  //       box.width = x-box.x;
-  //       box.height = y-box.y;
-  //   }
-  //   break;
-  // case CV_EVENT_LBUTTONDOWN:
-  //   drawing_box = true;
-  //   box = Rect( x, y, 0, 0 );
-  //   break;
-  case CV_EVENT_LBUTTONUP:
-    cout << "[Ming]\033[1;31mbold The x is :\033[0m" << x << endl;
-    cout << "[Ming]\033[1;31mbold The y is :\033[0m" << y << endl;
-    remove_x = x;
-    remove_y = y;
-    break;
-  }
-}
-
-
 // almost the same as show(), but magnified, to show better the patches
 void FerNNClassifier::show_ming(){
-  int scale = 3;
   Mat examples(pEx[0].rows*scale, (int)pEx.size()*pEx[0].cols*scale,CV_8U);
   double minval;
   Mat ex(pEx[0].rows,pEx[0].cols,pEx[0].type());
   for (int i=0;i<pEx.size();i++){
     minMaxLoc(pEx[i],&minval);
     pEx[i].copyTo(ex);
+
+    
+
     ex = ex-minval;
     Mat ex_large;
     resize(ex, ex_large, Size(pEx[0].rows*scale,pEx[0].cols*scale), 1,1,INTER_AREA);
@@ -264,16 +318,5 @@ void FerNNClassifier::show_ming(){
     ex_large.convertTo(tmp,CV_8U);
   }
   imshow("Examples",examples);
-
-  cvSetMouseCallback("Examples", mouseRemoverHandler, NULL);
-  if (remove_x != 0) {
-      // the remove x is updated
-      int index_remove = remove_x / (pEx[0].cols*scale);
-      cout << "[Ming]\033[1;31mbold Removing patch :\033[0m" << index_remove << endl;
-      pEx.erase(pEx.begin() + index_remove);
-      // add to negative samples
-      nEx.push_back(pEx[index_remove]);
-      remove_x = 0; // set back to 0 to stop keep erasing following patchese.
-  }
 }
 

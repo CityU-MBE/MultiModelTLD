@@ -7,6 +7,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
+#include <thread>
 class FerNNClassifier{
 private:
   float thr_fern;
@@ -15,8 +16,17 @@ private:
   float valid;
   float ncc_thesame;
   float thr_nn;
-  int acum;
+  void remove_thd(); // Ming: watch removal of window
+  static void mouseRemoverHandler(int event, int x, int y, int flags, void *param);
+  std::thread t;
+  /* int acum; */
 public:
+  bool suicide;
+  int acum; //Ming: such that learn() can access this variable.
+  // Ming: history; help removal by show_ming()
+  std::vector< std::vector< std::pair< std::vector<int>, int > > > history_fernsLearn; //learned fern at models
+  std::vector<int> tracker_indexLearn; // tracking the learned models (displayed on "Examples")
+
   //Parameters
   float thr_nn_valid;
 
